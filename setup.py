@@ -2,8 +2,10 @@ from setuptools import setup
 
 setup(
     name='cloud_enum',
-    description='Multi-cloud OSINT tool. Enumerate public resources in AWS, Azure, and Google Cloud.',
+    version='0.8.1',
+    description='Maintained fork of cloud_enum. Enumerate public resources in AWS, Azure, and Google Cloud.',
     author='initstring',
+    maintainer='Tantalum Security',
     url='https://github.com/initstring/cloud_enum',
     license='MIT',
     packages=[

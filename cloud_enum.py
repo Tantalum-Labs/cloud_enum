@@ -1,12 +1,11 @@
 #!/usr/bin/env python3
 
 """
-cloud_enum by initstring (github.com/initstring)
+cloud_enum, original project by initstring (github.com/initstring)
 
+This maintained fork is updated by Tantalum Security.
 Multi-cloud OSINT tool designed to enumerate storage and services in AWS,
 Azure, and GCP.
-
-Enjoy!
 """
 
 import os
@@ -17,14 +16,17 @@ from enum_tools import aws_checks
 from enum_tools import azure_checks
 from enum_tools import gcp_checks
 from enum_tools import utils
+from enum_tools import __version__
 
 BANNER = '''
 ##########################
         cloud_enum
-   github.com/initstring
+         v{version}
+  original by initstring
+ maintained by Tantalum
 ##########################
 
-'''
+'''.format(version=__version__)
 
 
 def parse_arguments():
@@ -85,6 +87,10 @@ def parse_arguments():
 
     parser.add_argument('-qs', '--quickscan', action='store_true',
                         help='Disable all mutations and second-level scans')
+    parser.add_argument('--include-domain-suffixes', action='store_true',
+                        help='When mutating dotted keywords, keep the full'
+                        ' dotted suffix instead of mutating only the'
+                        ' leftmost label.')
 
     args = parser.parse_args()
 
@@ -143,6 +149,10 @@ def print_status(args):
         print("Mutations:   NONE! (Using quickscan)")
     else:
         print(f"Mutations:   {args.mutations}")
+    if args.include_domain_suffixes:
+        print("Dot-Suffix:  Included in mutations")
+    else:
+        print("Dot-Suffix:  Leftmost label only (default)")
     print(f"Brute-list:  {args.brute}")
     print("")
 
@@ -183,44 +193,59 @@ def clean_text(text):
     return text_clean
 
 
-def append_name(name, names_list):
+def append_name(name, names_list, seen_names):
     """
     Ensure strings stick to DNS label limit of 63 characters
     """
-    if len(name) <= 63:
+    if name and len(name) <= 63 and name not in seen_names:
+        seen_names.add(name)
         names_list.append(name)
 
 
-def build_names(base_list, mutations):
+def get_mutation_base(base, include_domain_suffixes=False):
+    """
+    Return the part of a keyword that should be used for mutations.
+    """
+    if include_domain_suffixes or '.' not in base:
+        return base
+
+    return base.split('.', 1)[0]
+
+
+def build_names(base_list, mutations, include_domain_suffixes=False):
     """
     Combine base and mutations for processing by individual modules.
     """
     names = []
+    seen_names = set()
 
     for base in base_list:
         # Clean base
         base = clean_text(base)
+        mutation_base = get_mutation_base(base, include_domain_suffixes)
 
         # First, include with no mutations
-        append_name(base, names)
+        append_name(base, names, seen_names)
+        append_name(mutation_base, names, seen_names)
 
         for mutation in mutations:
             # Clean mutation
             mutation = clean_text(mutation)
 
             # Then, do appends
-            append_name(f"{base}{mutation}", names)
-            append_name(f"{base}.{mutation}", names)
-            append_name(f"{base}-{mutation}", names)
+            append_name(f"{mutation_base}{mutation}", names, seen_names)
+            append_name(f"{mutation_base}.{mutation}", names, seen_names)
+            append_name(f"{mutation_base}-{mutation}", names, seen_names)
 
             # Then, do prepends
-            append_name(f"{mutation}{base}", names)
-            append_name(f"{mutation}.{base}", names)
-            append_name(f"{mutation}-{base}", names)
+            append_name(f"{mutation}{mutation_base}", names, seen_names)
+            append_name(f"{mutation}.{mutation_base}", names, seen_names)
+            append_name(f"{mutation}-{mutation_base}", names, seen_names)
 
     print(f"[+] Mutated results: {len(names)} items")
 
     return names
+
 
 def read_nameservers(file_path):
     try:
@@ -254,7 +279,7 @@ def main():
         mutations = []
     else:
         mutations = read_mutations(args.mutations)
-    names = build_names(args.keyword, mutations)
+    names = build_names(args.keyword, mutations, args.include_domain_suffixes)
 
     # All the work is done in the individual modules
     try:

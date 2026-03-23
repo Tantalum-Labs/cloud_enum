@@ -25,6 +25,7 @@ except ImportError:
 
 LOGFILE = False
 LOGFILE_FMT = ''
+DEFAULT_HTTP_TIMEOUT = 10
 
 
 def init_logfile(logfile, fmt):
@@ -56,11 +57,12 @@ def is_valid_domain(domain):
         # Each label should be between 1 and 63 characters long
         if not (1 <= len(label) <= 63):
             return False
-        
+
     return True
 
 
-def get_url_batch(url_list, use_ssl=False, callback='', threads=5, redir=True):
+def get_url_batch(url_list, use_ssl=False, callback='', threads=5, redir=True,
+                  method='get', request_timeout=DEFAULT_HTTP_TIMEOUT):
     """
     Processes a list of URLs, sending the results back to the calling
     function in real-time via the `callback` parameter
@@ -73,6 +75,9 @@ def get_url_batch(url_list, use_ssl=False, callback='', threads=5, redir=True):
 
     # Filter out invalid URLs
     url_list = [url for url in url_list if is_valid_domain(url)]
+
+    # Refresh the total after filtering invalid domains
+    tick['total'] = len(url_list)
 
     # Break the url list into smaller lists based on thread size
     queue = [url_list[x:x+threads] for x in range(0, len(url_list), threads)]
@@ -98,7 +103,9 @@ def get_url_batch(url_list, use_ssl=False, callback='', threads=5, redir=True):
 
         # First, grab the pending async request and store it in a dict
         for url in batch:
-            batch_pending[url] = session.get(proto + url, allow_redirects=redir)
+            batch_pending[url] = session.request(method, proto + url,
+                                                 allow_redirects=redir,
+                                                 timeout=request_timeout)
 
         # Then, grab all the results from the queue.
         # This is where we need to catch exceptions that occur with large
@@ -108,8 +115,8 @@ def get_url_batch(url_list, use_ssl=False, callback='', threads=5, redir=True):
                 # Timeout is set due to observation of some large jobs simply
                 # hanging forever with no exception raised.
                 batch_results[url] = batch_pending[url].result(timeout=30)
-            except requests.exceptions.ConnectionError as error_msg:
-                print(f"    [!] Connection error on {url}:")
+            except requests.exceptions.RequestException as error_msg:
+                print(f"    [!] Request error on {url}:")
                 print(error_msg)
             except TimeoutError:
                 print(f"    [!] Timeout on {url}. Investigate if there are"
@@ -124,13 +131,14 @@ def get_url_batch(url_list, use_ssl=False, callback='', threads=5, redir=True):
                 return
 
         # Refresh a status message
-        tick['current'] += threads
+        tick['current'] += len(batch)
         sys.stdout.flush()
         sys.stdout.write(f"    {tick['current']}/{tick['total']} complete...")
         sys.stdout.write('\r')
 
     # Clear the status message
     sys.stdout.write('                            \r')
+
 
 def read_nameservers(file_path):
     """
@@ -254,7 +262,12 @@ def list_bucket_contents(bucket):
     Provides a list of full URLs to each open bucket
     """
     key_regex = re.compile(r'<(?:Key|Name)>(.*?)</(?:Key|Name)>')
-    reply = requests.get(bucket)
+    try:
+        reply = requests.get(bucket, timeout=DEFAULT_HTTP_TIMEOUT)
+    except requests.exceptions.RequestException as error_msg:
+        print(f"      [!] Error retrieving bucket listing from {bucket}:")
+        print(f"      {error_msg}")
+        return
 
     # Make a list of all the relative-path key name
     keys = re.findall(key_regex, reply.text)
@@ -286,6 +299,8 @@ def fmt_output(data):
         ansi = bold + '\033[92m'  # green
     if data['access'] == 'protected':
         ansi = bold + '\033[33m'  # orange
+    if data['access'] == 'exists':
+        ansi = bold + '\033[36m'  # cyan
     if data['access'] == 'disabled':
         ansi = bold + '\033[31m'  # red
 

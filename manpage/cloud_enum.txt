@@ -6,6 +6,13 @@ SYNOPSIS
 
 DESCRIPTION
   Multi-cloud OSINT tool. Enumerate public resources in AWS, Azure, and Google Cloud.
+  This is a maintained fork of the original cloud_enum project, updated by
+  Tantalum Security to keep provider-specific checks effective as cloud behavior changes.
+
+  Version 0.8.1 keeps the recent S3 effectiveness improvements and changes dotted
+  keyword mutations to use the leftmost label by default. Use
+  --include-domain-suffixes to opt back into full dotted-keyword mutations.
+
   Currently enumerates the following:
 
     Amazon Web Services:
@@ -35,6 +42,7 @@ OPTIONS
   -ns NAMESERVER, --nameserver NAMESERVER   DNS server to use in brute-force.
   -l LOGFILE, --logfile LOGFILE             Will APPEND found items to specified file.
   -f FORMAT, --format Format                Format for log file (text,json,csv - defaults to text)
+  --include-domain-suffixes                 When mutating dotted keywords, keep the full dotted suffix instead of mutating only the leftmost label.
   --disable-aws                             Disable Amazon checks.
   --disable-azure                           Disable Azure checks.
   --disable-gcp                             Disable Google checks.
@@ -48,7 +56,8 @@ EXAMPLES
   cloud_enum -k somecompany -k somecompany.io -k blockchaindoohickey
 
 AUTHOR
-  Written by initstring <initstring@protonmail.com>
+  Original tool by initstring <initstring@protonmail.com>
+  Maintained fork by Tantalum Security.
 
   This manual page was written by Guilherme de Paula Xavier Segundo
   <guilherme.lnx@gmail.com> for the Debian project (but may be used by others).
