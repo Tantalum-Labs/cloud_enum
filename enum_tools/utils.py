@@ -177,6 +177,7 @@ def dns_lookup(nameserver, name):
 
     res = dns.resolver.Resolver()
     res.timeout = 3
+    res.lifetime = 3
     if nameserverfile:
         nameservers = read_nameservers(nameserverfile)
         res.nameservers = nameservers
@@ -187,10 +188,12 @@ def dns_lookup(nameserver, name):
 
     while tries < 3:
         try:
-            res.query(name)
+            res.resolve(name, search=False)
             # If no exception is thrown, return the valid name
             return name
         except dns.resolver.NXDOMAIN:
+            return ''
+        except dns.resolver.NoAnswer:
             return ''
         except dns.resolver.NoNameservers as exc_text:
             print("    [!] Error querying nameservers! This could be a problem.")

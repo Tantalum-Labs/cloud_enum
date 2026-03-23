@@ -15,11 +15,13 @@ This release tightens keyword mutation behavior so scans spend fewer requests on
 - dotted keywords now keep their original full value as direct candidates, but mutations are built from the leftmost label by default
 - documentation and manpages now describe the new dotted-keyword mutation default and the opt-in flag
 - package version updated to `0.8.1`
+- DNS lookups now resolve candidate names with search suffix expansion disabled, avoiding local resolver domains from being appended to brute-force candidates
 
 ### Why It Matters
 
 - names such as `portal.example.com-dev` and `dev.portal.example.com` are rarely useful for most operators
 - reducing those mutations keeps the scan focused on higher-value candidates while preserving the old behavior for users who explicitly want it
+- local resolver suffixes such as internal corporate domains no longer contaminate `awsapps.com` lookups or crash the scan with `NoAnswer`
 
 ## 0.8.0 - 2026-03-23
 
