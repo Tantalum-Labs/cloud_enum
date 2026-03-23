@@ -108,3 +108,4 @@ venv.bak/
 
 # vscode
 .vscode/
+cloud_enum.code-workspace
